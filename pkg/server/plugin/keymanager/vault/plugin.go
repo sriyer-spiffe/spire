@@ -2,6 +2,7 @@ package vault
 
 import (
 	context "context"
+	"fmt"
 	"os"
 	"sync"
 
@@ -11,15 +12,19 @@ import (
 	configv1 "github.com/spiffe/spire-plugin-sdk/proto/spire/service/common/config/v1"
 	"github.com/spiffe/spire/pkg/common/catalog"
 	"github.com/spiffe/spire/pkg/common/plugin/vault"
+	keymanagerbase "github.com/spiffe/spire/pkg/server/plugin/keymanager/base"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
+
 
 func BuiltIn() catalog.BuiltIn {
 	return builtIn(New())
 }
 
+
 func builtIn(p *Plugin) catalog.BuiltIn {
+	p.logger.Info("loading vault key manager plugin")
 	return catalog.MakeBuiltIn(vault.PluginName,
 		keymanagerv1.KeyManagerPluginServer(p),
 		configv1.ConfigServiceServer(p),
@@ -27,16 +32,19 @@ func builtIn(p *Plugin) catalog.BuiltIn {
 }
 
 type Plugin struct {
-	keymanagerv1.KeyManagerServer
+	keymanagerv1.UnsafeKeyManagerServer
 	configv1.UnsafeConfigServer
 
+	generator keymanagerbase.Generator
 	mtx    *sync.RWMutex
 	logger hclog.Logger
 
 	authMethod vault.AuthMethod
 	cc         *vault.ClientConfig
 	vc         *vault.Client
+	serverIdentifier string
 
+	entries map[string]*keymanagerv1.PublicKey
 
 	hooks struct {
 		lookupEnv func(string) (string, bool)
@@ -44,6 +52,7 @@ type Plugin struct {
 }
 
 func (p *Plugin) Configure(ctx context.Context, req *configv1.ConfigureRequest) (*configv1.ConfigureResponse, error) {
+	fmt.Println("configuring vault key manager")
 	config := new(vault.Configuration)
 
 	if err := hcl.Decode(&config, req.HclConfiguration); err != nil {
@@ -69,12 +78,17 @@ func (p *Plugin) Configure(ctx context.Context, req *configv1.ConfigureRequest) 
 	p.authMethod = am
 	p.cc = vcConfig
 
+	
+
 	return &configv1.ConfigureResponse{}, nil
 }
 
 func New() *Plugin {
 	p := &Plugin{
 		mtx: &sync.RWMutex{},
+		generator: &defaultGenerator{},
+		entries: make(map[string]*keymanagerv1.PublicKey),
+		logger: hclog.New(&hclog.LoggerOptions{}),
 	}
 	p.hooks.lookupEnv = os.LookupEnv
 	return p

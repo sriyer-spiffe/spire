@@ -27,6 +27,8 @@ type Configuration struct {
 	InsecureSkipVerify bool `hcl:"insecure_skip_verify" json:"insecure_skip_verify"`
 	// Name of the Vault namespace
 	Namespace string `hcl:"namespace" json:"namespace"`
+	// The instance identifier for the spire server
+	SpireServerInstanceID string `hcl:"spier_server_instance_id" json:"spire_server_instance_id"`
 }
 
 

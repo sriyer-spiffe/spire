@@ -2,21 +2,20 @@ package vault
 
 import (
 	"context"
+	"fmt"
 
 	keymanagerv1 "github.com/spiffe/spire-plugin-sdk/proto/spire/plugin/server/keymanager/v1"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 )
 
 // GenerateKey implements the KeyManager GenerateKey RPC. Generates a new private key with the given ID.
 // If a key already exists under that ID, it is overwritten and given a different fingerprint.
 func (p *Plugin) GenerateKey(ctx context.Context, req *keymanagerv1.GenerateKeyRequest) (*keymanagerv1.GenerateKeyResponse, error) {
 	
-	p.logger.Debug("GenerateKey - key id on request ", req.KeyId, req.KeyType)
+	fmt.Println("GenerateKey - key id on request ", req.KeyId, req.KeyType)
 
-	
 
-	return nil, status.Error(codes.Unimplemented, "not implemented")
+	return p.generateKey(ctx, req)
+	// return nil, status.Error(codes.Unimplemented, "not implemented")
 }
 
 // GetPublicKey implements the KeyManager GetPublicKey RPC. Gets the public key information for the private key managed
@@ -24,9 +23,8 @@ func (p *Plugin) GenerateKey(ctx context.Context, req *keymanagerv1.GenerateKeyR
 func (p *Plugin) GetPublicKey(ctx context.Context, req *keymanagerv1.GetPublicKeyRequest) (*keymanagerv1.GetPublicKeyResponse, error) {
 	
 	p.logger.Info("GetPublicKey - key id on request ", req.KeyId)
-
 	
-	return nil, status.Error(codes.Unimplemented, "not implemented")
+	return p.getPublicKey(ctx, req)
 }
 
 // GetPublicKeys implements the KeyManager GetPublicKeys RPC. Gets all public key information for the private keys
@@ -35,9 +33,7 @@ func (p *Plugin) GetPublicKeys(ctx context.Context, req *keymanagerv1.GetPublicK
 	
 	p.logger.Info("GetPublicKeys - key id on request ", req.String())
 
-	
-
-	return nil, status.Error(codes.Unimplemented, "not implemented")
+	return p.getPublicKeys(ctx, req)
 }
 
 // SignData implements the KeyManager SignData RPC. Signs data with the private key identified by the given ID. If a key
@@ -47,8 +43,8 @@ func (p *Plugin) SignData(ctx context.Context, req *keymanagerv1.SignDataRequest
 	
 	p.logger.Info("SingData ", req.String())
 
-	
+	return p.signData(req)
 
-	return nil, status.Error(codes.Unimplemented, "not implemented")
+	// return nil, status.Error(codes.Unimplemented, "not implemented")
 }
 

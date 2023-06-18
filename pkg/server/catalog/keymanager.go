@@ -8,6 +8,7 @@ import (
 	"github.com/spiffe/spire/pkg/server/plugin/keymanager/disk"
 	"github.com/spiffe/spire/pkg/server/plugin/keymanager/gcpkms"
 	"github.com/spiffe/spire/pkg/server/plugin/keymanager/memory"
+	"github.com/spiffe/spire/pkg/server/plugin/keymanager/vault"
 )
 
 type keyManagerRepository struct {
@@ -32,6 +33,7 @@ func (repo *keyManagerRepository) BuiltIns() []catalog.BuiltIn {
 		disk.BuiltIn(),
 		gcpkms.BuiltIn(),
 		memory.BuiltIn(),
+		vault.BuiltIn(),
 	}
 }
 
