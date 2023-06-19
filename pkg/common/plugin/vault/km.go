@@ -13,7 +13,7 @@ import (
 func (c *Client) StashKeyEntry(keyID string, entry *keymanagerbase.KeyEntry, spireServerID string) (err error) {
 	keyBytes, err := x509.MarshalPKCS8PrivateKey(entry.PrivateKey)
 	if err != nil {
-		return status.Errorf(codes.Internal, "error transforming key ", err)
+		return status.Errorf(codes.Internal, "error transforming key %v", err)
 	}
 
 	_, err = c.vaultClient.Logical().Write(fmt.Sprintf("testing/spire/pki/%s/%s", spireServerID, keyID), map[string]interface{}{"key": keyBytes})
