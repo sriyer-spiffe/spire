@@ -13,6 +13,7 @@ import (
 	"fmt"
 
 	keymanagerv1 "github.com/spiffe/spire-plugin-sdk/proto/spire/plugin/server/keymanager/v1"
+	"github.com/spiffe/spire/pkg/common/plugin/vault"
 	keymanagerbase "github.com/spiffe/spire/pkg/server/plugin/keymanager/base"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -64,8 +65,12 @@ func (p *Plugin) generateKey(ctx context.Context, req *keymanagerv1.GenerateKeyR
 	p.mtx.Lock()
 	defer p.mtx.Unlock()
 
+	client, err := p.getVaultClient()
+	if err != nil {
+		return nil, err
+	}
 
-	err = p.vc.StashKeyEntry(req.KeyId, *newEntry, p.serverIdentifier)
+	err = client.StashKeyEntry(req.KeyId, newEntry, p.serverIdentifier)
 
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "error stashing key on secure store %v", err)
@@ -79,7 +84,6 @@ func (p *Plugin) generateKey(ctx context.Context, req *keymanagerv1.GenerateKeyR
 
 
 func (p *Plugin) generateKeyEntry(keyID string, keyType keymanagerv1.KeyType) (e *keymanagerbase.KeyEntry, err error) {
-	fmt.Println("generator !!! ", p.generator)
 	var privateKey crypto.Signer
 	switch keyType {
 	case keymanagerv1.KeyType_EC_P256:
@@ -183,7 +187,11 @@ func (p *Plugin) signData(req *keymanagerv1.SignDataRequest) (*keymanagerv1.Sign
 func (p *Plugin) getPrivateKeyAndFingerprint(id string) (crypto.Signer, string, error) {
 	p.mtx.RLock()
 	defer p.mtx.RUnlock()
-	entry, err := p.vc.FetchKeyEntry(id, p.serverIdentifier)
+	client, err := p.getVaultClient()
+	if err != nil {
+		return nil, "", err
+	}
+	entry, err := client.FetchKeyEntry(id, p.serverIdentifier)
 	if err != nil {
 		return nil, "", err
 	}
@@ -208,4 +216,30 @@ func (defaultGenerator) GenerateEC256Key() (*ecdsa.PrivateKey, error) {
 
 func (defaultGenerator) GenerateEC384Key() (*ecdsa.PrivateKey, error) {
 	return ecdsa.GenerateKey(elliptic.P384(), rand.Reader)
+}
+
+
+func (p *Plugin) getVaultClient() (vc *vault.Client, err error){
+	renewCh := make(chan struct{})
+	if p.vc == nil {
+		vc, err = p.cc.NewAuthenticatedClient(p.authMethod, renewCh)
+		if err != nil {
+			err = status.Errorf(codes.Internal, "failed to prepare authenticated client: %v", err)
+			return
+		}
+		p.vc = vc
+
+		// if renewCh has been closed, the token can not be renewed and may expire,
+		// it needs to re-authenticate to the Vault.
+		go func() {
+			<-renewCh
+			p.mtx.Lock()
+			defer p.mtx.Unlock()
+			p.vc = nil
+			p.logger.Debug("Going to re-authenticate to the Vault at the next signing request time")
+		}()
+	} else {
+		vc = p.vc
+	}
+	return
 }

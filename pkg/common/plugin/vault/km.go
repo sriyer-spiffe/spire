@@ -2,6 +2,7 @@ package vault
 
 import (
 	"crypto/x509"
+	"encoding/base64"
 	"fmt"
 
 	keymanagerbase "github.com/spiffe/spire/pkg/server/plugin/keymanager/base"
@@ -9,34 +10,35 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-func (c *Client) StashKeyEntry(keyID string, entry keymanagerbase.KeyEntry, spireServerID string) (err error) {
-	fmt.Println("trying to stash key for key id ", keyID)
-
-	fmt.Println("pvt key to stash = ", entry)
+func (c *Client) StashKeyEntry(keyID string, entry *keymanagerbase.KeyEntry, spireServerID string) (err error) {
 	keyBytes, err := x509.MarshalPKCS8PrivateKey(entry.PrivateKey)
 	if err != nil {
-		fmt.Println("error : ", err)
-		return status.Errorf(codes.Internal, "error transforming key ", err )
+		return status.Errorf(codes.Internal, "error transforming key ", err)
 	}
-	
-	fmt.Println("vault client - ", c.vaultClient)
-	_, err = c.vaultClient.Logical().Write(fmt.Sprintf("secret/spire/pki/%s/%s", spireServerID, keyID), map[string]interface{} {"key": keyBytes})
+
+	_, err = c.vaultClient.Logical().Write(fmt.Sprintf("testing/spire/pki/%s/%s", spireServerID, keyID), map[string]interface{}{"key": keyBytes})
 	if err != nil {
-		return status.Errorf(codes.Internal, "error writing to vault %v ", err )
+		return status.Errorf(codes.Internal, "error writing to vault %v ", err)
 	}
 
 	return
 }
 
-func (c *Client) FetchKeyEntry (keyId, spireServerID string) (entry keymanagerbase.KeyEntry, err error) {
-	secret, err := c.vaultClient.Logical().Read(fmt.Sprintf("secret/spire/pki/%s/%s", spireServerID, keyId))
+func (c *Client) FetchKeyEntry(keyId, spireServerID string) (entry keymanagerbase.KeyEntry, err error) {
+	secret, err := c.vaultClient.Logical().Read(fmt.Sprintf("testing/spire/pki/%s/%s", spireServerID, keyId))
 	if err != nil {
 		err = status.Errorf(codes.Internal, "error reading from vault %v", err)
 		return
 	}
-	data, ok := secret.Data["key"].([]byte)
+	
+	vaultData, ok := secret.Data["key"].(string)
 	if !ok {
 		err = status.Errorf(codes.Internal, "no data found on vault for key %s", keyId)
+		return
+	}
+	data, err := base64.RawStdEncoding.DecodeString(vaultData)
+	if err != nil {
+		err = status.Errorf(codes.Internal, "error decoding data from vault %v", err)
 		return
 	}
 	key, err := x509.ParsePKCS8PrivateKey(data)

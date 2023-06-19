@@ -202,13 +202,11 @@ func (m *Manager) PrepareX509CA(ctx context.Context) (err error) {
 
 	now := m.c.Clock.Now()
 	km := m.c.Catalog.GetKeyManager()
-	log.Debug("Key manager obtained -- ", km)
-	log.Debug("slot", slot.KmKeyID())
+
 	signer, err := km.GenerateKey(ctx, slot.KmKeyID(), m.c.X509CAKeyType)
 	if err != nil {
 		return err
 	}
-	log.Debug("signer obtained .. ", signer)
 
 	var x509CA *ca.X509CA
 	if m.upstreamClient != nil {

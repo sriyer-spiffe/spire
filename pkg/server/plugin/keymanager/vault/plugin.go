@@ -2,7 +2,7 @@ package vault
 
 import (
 	context "context"
-	"fmt"
+	
 	"os"
 	"sync"
 
@@ -52,7 +52,6 @@ type Plugin struct {
 }
 
 func (p *Plugin) Configure(ctx context.Context, req *configv1.ConfigureRequest) (*configv1.ConfigureResponse, error) {
-	fmt.Println("configuring vault key manager")
 	config := new(vault.Configuration)
 
 	if err := hcl.Decode(&config, req.HclConfiguration); err != nil {
@@ -78,7 +77,12 @@ func (p *Plugin) Configure(ctx context.Context, req *configv1.ConfigureRequest) 
 	p.authMethod = am
 	p.cc = vcConfig
 
-	
+
+
+	_, err = p.getVaultClient()
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "vault client creation failed %v", err)
+	}	
 
 	return &configv1.ConfigureResponse{}, nil
 }
